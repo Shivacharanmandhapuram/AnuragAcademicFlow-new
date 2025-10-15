@@ -1,12 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Store the getToken function globally so we can use it in requests
-let clerkGetToken: (() => Promise<string | null>) | null = null;
-
-export function setClerkGetToken(getToken: () => Promise<string | null>) {
-  clerkGetToken = getToken;
-}
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -14,27 +7,12 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {};
-  
-  if (clerkGetToken) {
-    const token = await clerkGetToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-  }
-  
-  return headers;
-}
-
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const authHeaders = await getAuthHeaders();
   const headers = {
-    ...authHeaders,
     ...(data ? { "Content-Type": "application/json" } : {}),
   };
 
@@ -42,6 +20,7 @@ export async function apiRequest(
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
   });
 
   await throwIfResNotOk(res);
@@ -54,10 +33,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const authHeaders = await getAuthHeaders();
-    
     const res = await fetch(queryKey.join("/") as string, {
-      headers: authHeaders,
+      credentials: "include",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

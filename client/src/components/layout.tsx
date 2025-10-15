@@ -1,19 +1,33 @@
 import { useAuth } from "@/hooks/useAuth";
-import { UserButton } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { Home, FileText, GraduationCap } from "lucide-react";
+import { Home, FileText, GraduationCap, LogOut } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [location] = useLocation();
+  const { toast } = useToast();
 
-  const getInitials = () => {
-    if (user?.firstName && user?.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
-    return user?.email?.[0].toUpperCase() || "U";
-  };
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/logout");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      window.location.href = "/";
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to logout",
+        variant: "destructive",
+      });
+    },
+  });
 
   const isActive = (path: string) => {
     return location === path;
@@ -63,12 +77,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             {/* User Menu */}
             <div className="flex items-center gap-3">
+              {user?.firstName && (
+                <span className="text-sm text-muted-foreground" data-testid="text-user-name">
+                  {user.firstName}
+                </span>
+              )}
               {user?.role && (
                 <span className="text-xs text-muted-foreground capitalize hidden sm:inline" data-testid="text-user-role">
                   {user.role}
                 </span>
               )}
-              <UserButton afterSignOutUrl="/" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>

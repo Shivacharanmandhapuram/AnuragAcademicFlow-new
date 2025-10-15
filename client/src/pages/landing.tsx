@@ -1,9 +1,49 @@
-import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { FileText, CheckCircle, Shield } from "lucide-react";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function Landing() {
+  const [name, setName] = useState("");
+  const [showDialog, setShowDialog] = useState(false);
+  const { toast } = useToast();
+
+  const setNameMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/auth/set-name", { name });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setShowDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to set name",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      setNameMutation.mutate(name.trim());
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section with Gradient */}
@@ -18,15 +58,14 @@ export default function Landing() {
               Share. Cite. Verify.
             </p>
             <div className="flex flex-wrap gap-4 justify-center pt-6">
-              <SignInButton mode="modal">
-                <Button 
-                  size="lg" 
-                  className="bg-white text-primary hover:bg-white/90 border-white"
-                  data-testid="button-get-started"
-                >
-                  Get Started
-                </Button>
-              </SignInButton>
+              <Button 
+                size="lg" 
+                className="bg-white text-primary hover:bg-white/90 border-white"
+                onClick={() => setShowDialog(true)}
+                data-testid="button-get-started"
+              >
+                Get Started
+              </Button>
               <Button 
                 size="lg" 
                 variant="outline" 
@@ -88,6 +127,36 @@ export default function Landing() {
           <p>© 2025 AcademicFlow. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* Name Input Dialog */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent data-testid="dialog-name-input">
+          <DialogHeader>
+            <DialogTitle>Welcome to AcademicFlow</DialogTitle>
+            <DialogDescription>
+              Please enter your name to get started
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              type="text"
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              data-testid="input-name"
+            />
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={setNameMutation.isPending || !name.trim()}
+              data-testid="button-submit-name"
+            >
+              {setNameMutation.isPending ? "Setting up..." : "Continue"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
