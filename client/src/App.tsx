@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { Layout } from "@/components/layout";
+import { RoleSelectionDialog } from "@/components/role-selection-dialog";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import StudentDashboard from "@/pages/student-dashboard";
@@ -28,6 +29,11 @@ function Router() {
         <Route component={Landing} />
       </Switch>
     );
+  }
+
+  // Show role selection if user doesn't have a role
+  if (isAuthenticated && user && !user.role) {
+    return <RoleSelectionDialog open={true} />;
   }
 
   // Authenticated routes with layout

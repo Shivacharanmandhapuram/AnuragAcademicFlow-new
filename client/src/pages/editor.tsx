@@ -18,7 +18,7 @@ import {
 import { ArrowLeft, Share2, MoreVertical, Sparkles, Book, ChevronRight, ChevronLeft, Trash2 } from "lucide-react";
 import { useLocation, useRoute } from "wouter";
 import type { Note, Citation } from "@shared/schema";
-import dynamic from 'next/dynamic';
+import { lazy, Suspense } from "react";
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
@@ -30,8 +30,8 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { CitationModal } from "@/components/citation-modal";
 import { AIAssistantModal } from "@/components/ai-assistant-modal";
 
-// Dynamically import React Quill to avoid SSR issues
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+// Dynamically import React Quill
+const ReactQuill = lazy(() => import('react-quill'));
 import 'react-quill/dist/quill.snow.css';
 
 export default function Editor() {
@@ -297,23 +297,25 @@ export default function Editor() {
         <div className="flex-1 overflow-auto p-6">
           {noteType === "research" ? (
             <div className="max-w-4xl mx-auto">
-              <ReactQuill
-                value={content}
-                onChange={setContent}
-                className="h-full"
-                theme="snow"
-                placeholder="Start writing your research paper..."
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    ['blockquote', 'code-block'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['link'],
-                    ['clean']
-                  ]
-                }}
-              />
+              <Suspense fallback={<div className="text-center py-12">Loading editor...</div>}>
+                <ReactQuill
+                  value={content}
+                  onChange={setContent}
+                  className="h-full"
+                  theme="snow"
+                  placeholder="Start writing your research paper..."
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline', 'strike'],
+                      ['blockquote', 'code-block'],
+                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      ['link'],
+                      ['clean']
+                    ]
+                  }}
+                />
+              </Suspense>
             </div>
           ) : noteType === "code" ? (
             <CodeMirror

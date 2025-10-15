@@ -31,7 +31,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { enum: ["student", "faculty"] }).notNull().default("student"),
+  role: varchar("role", { enum: ["student", "faculty"] }), // Nullable - set via role selection after first login
   department: varchar("department"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
