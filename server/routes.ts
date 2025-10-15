@@ -5,9 +5,9 @@ import { insertNoteSchema, insertCitationSchema, insertSubmissionSchema } from "
 import { randomUUID } from "crypto";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - simplified without Clerk
@@ -59,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/logout", async (req, res) => {
     try {
-      req.session = null;
+      req.session.userId = undefined;
       res.json({ success: true });
     } catch (error) {
       console.error("Error logging out:", error);
@@ -293,6 +293,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
+
       // Generate citation using OpenAI
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -329,6 +333,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { text } = req.body;
 
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -355,6 +363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { text } = req.body;
 
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -380,6 +392,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/ai/grammar", async (req, res) => {
     try {
       const { text } = req.body;
+
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -418,6 +434,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { content } = req.body;
 
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -453,6 +473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { content, style } = req.body;
+
+      if (!openai) {
+        return res.status(503).json({ message: "OpenAI API is not configured" });
+      }
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
