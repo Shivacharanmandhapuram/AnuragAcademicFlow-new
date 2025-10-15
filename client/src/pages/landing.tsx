@@ -1,3 +1,4 @@
+import { SignInButton, SignUpButton } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, CheckCircle, Shield } from "lucide-react";
@@ -17,14 +18,15 @@ export default function Landing() {
               Share. Cite. Verify.
             </p>
             <div className="flex flex-wrap gap-4 justify-center pt-6">
-              <Button 
-                size="lg" 
-                className="bg-white text-primary hover:bg-white/90 border-white"
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-get-started"
-              >
-                Get Started
-              </Button>
+              <SignInButton mode="modal">
+                <Button 
+                  size="lg" 
+                  className="bg-white text-primary hover:bg-white/90 border-white"
+                  data-testid="button-get-started"
+                >
+                  Get Started
+                </Button>
+              </SignInButton>
               <Button 
                 size="lg" 
                 variant="outline" 

@@ -1,15 +1,8 @@
 import { useAuth } from "@/hooks/useAuth";
+import { UserButton } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Link, useLocation } from "wouter";
-import { Home, FileText, LogOut, GraduationCap } from "lucide-react";
+import { Home, FileText, GraduationCap } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -69,36 +62,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-testid="button-user-menu">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.email || "User"} className="object-cover" />
-                    <AvatarFallback>{getInitials()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium" data-testid="text-user-name">
-                      {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground" data-testid="text-user-email">
-                      {user?.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground capitalize" data-testid="text-user-role">
-                      {user?.role}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => window.location.href = '/api/logout'} data-testid="menu-logout">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-3">
+              {user?.role && (
+                <span className="text-xs text-muted-foreground capitalize hidden sm:inline" data-testid="text-user-role">
+                  {user.role}
+                </span>
+              )}
+              <UserButton afterSignOutUrl="/" />
+            </div>
           </div>
         </div>
       </nav>

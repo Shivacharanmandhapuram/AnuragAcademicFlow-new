@@ -1,8 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import {
-  index,
-  jsonb,
   pgTable,
   timestamp,
   varchar,
@@ -13,20 +11,9 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table - required for Replit Auth
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
-
-// Users table - required for Replit Auth with role extension for AcademicFlow
+// Users table - Stores Clerk user data with AcademicFlow role extension
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey(),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),

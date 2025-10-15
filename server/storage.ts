@@ -142,7 +142,7 @@ export class DatabaseStorage implements IStorage {
     
     // Get faculty user if exists
     const facultyUser = results[0].submissions.facultyId 
-      ? await this.getUser(results[0].submissions.facultyId) 
+      ? (await this.getUser(results[0].submissions.facultyId)) ?? null
       : null;
 
     return { ...results[0].submissions, student: results[0].users, faculty: facultyUser };

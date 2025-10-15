@@ -1,6 +1,7 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setClerkGetToken } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,9 +17,16 @@ import SharedNote from "@/pages/shared-note";
 import AIDetect from "@/pages/ai-detect";
 import CitationCheck from "@/pages/citation-check";
 import Submissions from "@/pages/submissions";
+import { useEffect } from "react";
 
 function Router() {
+  const { getToken } = useClerkAuth();
   const { isAuthenticated, isLoading, user } = useAuth();
+  
+  // Set up Clerk token getter for API requests
+  useEffect(() => {
+    setClerkGetToken(getToken);
+  }, [getToken]);
 
   // Show landing page while loading or not authenticated
   if (isLoading || !isAuthenticated) {

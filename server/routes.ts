@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { clerkAuthMiddleware, isAuthenticated, getUserId } from "./clerkAuth";
 import { insertNoteSchema, insertCitationSchema, insertSubmissionSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import OpenAI from "openai";
@@ -11,14 +11,35 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Clerk middleware - must be added before routes
+  app.use(clerkAuthMiddleware);
 
   // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Check if user exists in our database
+      let user = await storage.getUser(userId);
+      
+      // If user doesn't exist, sync from Clerk
+      if (!user) {
+        const { getClerkUser } = await import("./clerkAuth");
+        const clerkUser = await getClerkUser(userId);
+        
+        user = await storage.upsertUser({
+          id: userId,
+          email: clerkUser.emailAddresses[0]?.emailAddress || null,
+          firstName: clerkUser.firstName || null,
+          lastName: clerkUser.lastName || null,
+          profileImageUrl: clerkUser.imageUrl || null,
+          role: null, // Will be set via role selection
+        });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -27,9 +48,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Role selection endpoint
-  app.post("/api/auth/select-role", isAuthenticated, async (req: any, res) => {
+  app.post("/api/auth/select-role", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
       const { role } = req.body;
       
       if (!role || !["student", "faculty"].includes(role)) {
@@ -54,9 +79,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notes routes
-  app.get("/api/notes", isAuthenticated, async (req: any, res) => {
+  app.get("/api/notes", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const notes = await storage.getNotesByUserId(userId);
       res.json(notes);
     } catch (error) {
@@ -65,10 +93,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/notes/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/notes/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const note = await storage.getNoteById(id);
       if (!note) {
@@ -103,9 +134,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/notes", isAuthenticated, async (req: any, res) => {
+  app.post("/api/notes", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const noteData = insertNoteSchema.parse({ ...req.body, userId });
       
       const note = await storage.createNote(noteData);
@@ -116,10 +150,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notes/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/notes/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const note = await storage.getNoteById(id);
       if (!note) {
@@ -138,10 +175,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/notes/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/notes/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const note = await storage.getNoteById(id);
       if (!note) {
@@ -161,10 +201,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Share note endpoint
-  app.post("/api/notes/:id/share", isAuthenticated, async (req: any, res) => {
+  app.post("/api/notes/:id/share", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const { isPublic } = req.body;
       
       const note = await storage.getNoteById(id);
@@ -192,10 +235,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Citations routes
-  app.get("/api/citations/:noteId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/citations/:noteId", isAuthenticated, async (req, res) => {
     try {
       const { noteId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const note = await storage.getNoteById(noteId);
       if (!note) {
@@ -214,10 +260,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/citations/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/citations/generate", isAuthenticated, async (req, res) => {
     try {
       const { noteId, inputText, citationStyle } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const note = await storage.getNoteById(noteId);
       if (!note || note.userId !== userId) {
@@ -256,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Writing Assistant routes
-  app.post("/api/ai/improve", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/improve", isAuthenticated, async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -282,7 +331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/summarize", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/summarize", isAuthenticated, async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -308,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/grammar", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/grammar", isAuthenticated, async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -335,9 +384,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Faculty-only routes
-  app.post("/api/faculty/detect-ai", isAuthenticated, async (req: any, res) => {
+  app.post("/api/faculty/detect-ai", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       
       if (user?.role !== "faculty") {
@@ -368,9 +420,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/faculty/verify-citations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/faculty/verify-citations", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       
       if (user?.role !== "faculty") {
@@ -402,9 +457,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submissions routes
-  app.get("/api/submissions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/submissions", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       
       if (!user) {
@@ -425,10 +483,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/submissions/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/submissions/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       
       const submission = await storage.getSubmissionById(id);
       if (!submission) {
@@ -447,9 +508,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/submissions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/submissions", isAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const submissionData = insertSubmissionSchema.parse({
         ...req.body,
         studentId: userId,
@@ -463,10 +527,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/submissions/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/submissions/:id", isAuthenticated, async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       const user = await storage.getUser(userId);
       
       const submission = await storage.getSubmissionById(id);
