@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { clerkAuthMiddleware, isAuthenticated, getUserId } from "./clerkAuth";
 import { insertNoteSchema, insertCitationSchema, insertSubmissionSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import OpenAI from "openai";
@@ -11,33 +10,44 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Clerk middleware - must be added before routes
-  app.use(clerkAuthMiddleware);
-
-  // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req, res) => {
+  // Auth routes - simplified without Clerk
+  app.post("/api/auth/set-name", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const { name } = req.body;
+      
+      if (!name || name.trim().length === 0) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      // Create or get user by name
+      const userId = randomUUID();
+      const user = await storage.upsertUser({
+        id: userId,
+        email: null,
+        firstName: name,
+        lastName: null,
+        profileImageUrl: null,
+        role: null,
+      });
+
+      req.session.userId = user.id;
+      res.json(user);
+    } catch (error) {
+      console.error("Error setting name:", error);
+      res.status(500).json({ message: "Failed to set name" });
+    }
+  });
+
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      // Check if user exists in our database
-      let user = await storage.getUser(userId);
-      
-      // If user doesn't exist, sync from Clerk
+      const user = await storage.getUser(userId);
       if (!user) {
-        const { getClerkUser } = await import("./clerkAuth");
-        const clerkUser = await getClerkUser(userId);
-        
-        user = await storage.upsertUser({
-          id: userId,
-          email: clerkUser.emailAddresses[0]?.emailAddress || null,
-          firstName: clerkUser.firstName || null,
-          lastName: clerkUser.lastName || null,
-          profileImageUrl: clerkUser.imageUrl || null,
-          role: null, // Will be set via role selection
-        });
+        return res.status(404).json({ message: "User not found" });
       }
       
       res.json(user);
@@ -47,10 +57,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Role selection endpoint
-  app.post("/api/auth/select-role", isAuthenticated, async (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      req.session = null;
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error logging out:", error);
+      res.status(500).json({ message: "Failed to logout" });
+    }
+  });
+
+  // Role selection endpoint
+  app.post("/api/auth/select-role", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -79,9 +99,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notes routes
-  app.get("/api/notes", isAuthenticated, async (req, res) => {
+  app.get("/api/notes", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -93,10 +113,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/notes/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/notes/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -134,9 +154,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/notes", isAuthenticated, async (req, res) => {
+  app.post("/api/notes", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -150,10 +170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notes/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/notes/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -175,10 +195,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/notes/:id", isAuthenticated, async (req, res) => {
+  app.delete("/api/notes/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -201,10 +221,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Share note endpoint
-  app.post("/api/notes/:id/share", isAuthenticated, async (req, res) => {
+  app.post("/api/notes/:id/share", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -235,10 +255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Citations routes
-  app.get("/api/citations/:noteId", isAuthenticated, async (req, res) => {
+  app.get("/api/citations/:noteId", async (req, res) => {
     try {
       const { noteId } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -260,10 +280,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/citations/generate", isAuthenticated, async (req, res) => {
+  app.post("/api/citations/generate", async (req, res) => {
     try {
       const { noteId, inputText, citationStyle } = req.body;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -305,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Writing Assistant routes
-  app.post("/api/ai/improve", isAuthenticated, async (req, res) => {
+  app.post("/api/ai/improve", async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -331,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/summarize", isAuthenticated, async (req, res) => {
+  app.post("/api/ai/summarize", async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -357,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/ai/grammar", isAuthenticated, async (req, res) => {
+  app.post("/api/ai/grammar", async (req, res) => {
     try {
       const { text } = req.body;
 
@@ -384,9 +404,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Faculty-only routes
-  app.post("/api/faculty/detect-ai", isAuthenticated, async (req, res) => {
+  app.post("/api/faculty/detect-ai", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -420,9 +440,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/faculty/verify-citations", isAuthenticated, async (req, res) => {
+  app.post("/api/faculty/verify-citations", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -457,9 +477,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submissions routes
-  app.get("/api/submissions", isAuthenticated, async (req, res) => {
+  app.get("/api/submissions", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -483,10 +503,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/submissions/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/submissions/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -508,9 +528,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/submissions", isAuthenticated, async (req, res) => {
+  app.post("/api/submissions", async (req, res) => {
     try {
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -527,10 +547,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/submissions/:id", isAuthenticated, async (req, res) => {
+  app.patch("/api/submissions/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const userId = getUserId(req);
+      const userId = req.session?.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
