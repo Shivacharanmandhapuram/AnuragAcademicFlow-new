@@ -304,8 +304,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate citation using OpenAI
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -343,8 +344,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "OpenAI API is not configured" });
       }
 
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -373,8 +375,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "OpenAI API is not configured" });
       }
 
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -403,8 +406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "OpenAI API is not configured" });
       }
 
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -444,8 +448,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "OpenAI API is not configured" });
       }
 
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -456,6 +461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content,
           },
         ],
+        response_format: { type: "json_object" },
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{"score": 0, "indicators": []}');
@@ -484,8 +490,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "OpenAI API is not configured" });
       }
 
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5",
         messages: [
           {
             role: "system",
@@ -496,6 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content,
           },
         ],
+        response_format: { type: "json_object" },
       });
 
       const result = JSON.parse(completion.choices[0].message.content || '{"results": []}');
