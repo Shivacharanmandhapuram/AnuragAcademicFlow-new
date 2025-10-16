@@ -429,6 +429,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function for text pattern analysis
+  function analyzeTextPatterns(text: string) {
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+    const words = text.split(/\s+/);
+    
+    // Calculate sentence length statistics
+    const sentenceLengths = sentences.map(s => s.split(/\s+/).length);
+    const avgLength = sentenceLengths.reduce((a, b) => a + b, 0) / sentenceLengths.length;
+    const variance = sentenceLengths.reduce((sum, len) => 
+      sum + Math.pow(len - avgLength, 2), 0) / sentenceLengths.length;
+    
+    // Check for AI-common phrases
+    const aiPhrases = [
+      'it is important to note',
+      'furthermore',
+      'in conclusion',
+      'however, it is worth noting',
+      'delve into',
+      'robust',
+      'comprehensive',
+      'leverage',
+      'paramount',
+      'multifaceted'
+    ];
+    
+    const phrasesFound = aiPhrases.filter(phrase => 
+      text.toLowerCase().includes(phrase)
+    );
+    
+    // Check for personal voice
+    const personalPronouns = (text.match(/\b(I|my|me|we|us|our)\b/gi) || []).length;
+    const personalVoiceScore = (personalPronouns / words.length) * 100;
+    
+    return {
+      averageSentenceLength: Math.round(avgLength * 10) / 10,
+      sentenceLengthVariation: variance < 10 ? 'LOW' : variance < 30 ? 'MEDIUM' : 'HIGH',
+      genericPhraseCount: phrasesFound.length,
+      genericPhrasesFound: phrasesFound,
+      personalPronounUsage: personalVoiceScore > 2,
+      personalVoiceScore: Math.round(personalVoiceScore * 100) / 100
+    };
+  }
+
+  // Fallback detection function
+  function fallbackDetection(text: string) {
+    const patterns = analyzeTextPatterns(text);
+    
+    let score = 0;
+    const indicators = [];
+    
+    // Score based on patterns
+    if (patterns.sentenceLengthVariation === 'LOW') {
+      score += 30;
+      indicators.push('Highly uniform sentence lengths');
+    }
+    
+    if (patterns.genericPhraseCount >= 3) {
+      score += 25;
+      indicators.push(`Found ${patterns.genericPhraseCount} AI-common phrases`);
+    }
+    
+    if (!patterns.personalPronounUsage) {
+      score += 20;
+      indicators.push('Lacks personal voice and pronouns');
+    }
+    
+    if (patterns.averageSentenceLength > 20) {
+      score += 15;
+      indicators.push('Consistently long, complex sentences');
+    }
+    
+    // Check for perfect grammar (no simple typos)
+    if (!text.match(/\s{2,}/) && !text.match(/\.\./)) {
+      score += 10;
+      indicators.push('Perfect formatting with no typos');
+    }
+    
+    return {
+      aiScore: Math.min(score, 100),
+      likelihood: score > 70 ? 'HIGH' : score > 40 ? 'MEDIUM' : 'LOW',
+      confidence: 'LOW',
+      indicators: indicators,
+      details: {
+        ...patterns,
+        reasoning: 'Using fallback pattern detection (OpenAI API unavailable)'
+      }
+    };
+  }
+
   // Faculty-only routes
   app.post("/api/faculty/detect-ai", async (req, res) => {
     try {
@@ -444,28 +533,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { content } = req.body;
 
-      if (!openai) {
-        return res.status(503).json({ message: "OpenAI API is not configured" });
+      // Validate input
+      if (!content || content.trim().length < 50) {
+        return res.status(400).json({ 
+          message: 'Text must be at least 50 characters for analysis' 
+        });
       }
 
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI content detector. Analyze the following text and determine the likelihood (0-100%) that it was AI-generated. Also provide specific indicators. Respond in JSON format: {"score": number, "indicators": string[]}`,
-          },
-          {
-            role: "user",
-            content,
-          },
-        ],
-        response_format: { type: "json_object" },
-      });
+      if (!openai) {
+        // Use fallback detection if OpenAI is not configured
+        const result = fallbackDetection(content);
+        return res.json(result);
+      }
 
-      const result = JSON.parse(completion.choices[0].message.content || '{"score": 0, "indicators": []}');
-      res.json(result);
+      try {
+        // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        const completion = await openai.chat.completions.create({
+          model: "gpt-5",
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert AI content detector. Analyze the given text and determine the likelihood it was written by AI (like ChatGPT, GPT-4, Claude, etc.).
+
+IMPORTANT: Respond ONLY with a valid JSON object. Do not include any other text.
+
+Analyze these specific indicators:
+1. Sentence Structure Uniformity: AI text often has very consistent sentence lengths and patterns
+2. Vocabulary Patterns: Check for overly formal academic language or generic phrases like "it is important to note", "furthermore", "in conclusion", "delve into", "robust", "comprehensive"
+3. Personal Voice: Lack of personal pronouns (I, me, my) or personal anecdotes suggests AI
+4. Error Patterns: Perfect grammar with no typos is suspicious (humans make mistakes)
+5. Depth of Knowledge: Superficial coverage of topics with generic examples suggests AI
+6. Creativity: Lack of unique metaphors, jokes, or unconventional thinking suggests AI
+7. Repetition: AI often repeats similar phrases or sentence structures
+
+Return your analysis as a JSON object with this EXACT structure:
+{
+  "aiScore": <number 0-100>,
+  "confidence": "<HIGH|MEDIUM|LOW>",
+  "reasoning": "<brief explanation>",
+  "indicators": [<array of specific indicators found>],
+  "humanLikelihood": <number 0-100>
+}`,
+            },
+            {
+              role: "user",
+              content: `Analyze this text for AI-generated content:\n\n${content}\n\nRemember: Respond ONLY with valid JSON.`,
+            },
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        const aiResult = JSON.parse(completion.choices[0].message.content || '{"aiScore": 0, "indicators": [], "confidence": "LOW", "reasoning": "", "humanLikelihood": 100}');
+        
+        // Add additional pattern analysis
+        const patterns = analyzeTextPatterns(content);
+        
+        const result = {
+          aiScore: aiResult.aiScore,
+          likelihood: aiResult.aiScore > 70 ? 'HIGH' : aiResult.aiScore > 40 ? 'MEDIUM' : 'LOW',
+          confidence: aiResult.confidence,
+          indicators: aiResult.indicators,
+          details: {
+            averageSentenceLength: patterns.averageSentenceLength,
+            sentenceLengthVariation: patterns.sentenceLengthVariation,
+            genericPhraseCount: patterns.genericPhraseCount,
+            genericPhrasesFound: patterns.genericPhrasesFound,
+            personalPronounUsage: patterns.personalPronounUsage,
+            personalVoiceScore: patterns.personalVoiceScore,
+            reasoning: aiResult.reasoning,
+            humanLikelihood: aiResult.humanLikelihood
+          }
+        };
+        
+        res.json(result);
+      } catch (error) {
+        console.error('OpenAI API error:', error);
+        // Fallback to pattern-based detection
+        const result = fallbackDetection(content);
+        res.json(result);
+      }
     } catch (error) {
       console.error("Error detecting AI:", error);
       res.status(500).json({ message: "Failed to detect AI" });

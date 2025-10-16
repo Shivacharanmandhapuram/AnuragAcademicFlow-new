@@ -21,7 +21,22 @@ export default function AIDetect() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [content, setContent] = useState("");
-  const [result, setResult] = useState<{ score: number; indicators: string[] } | null>(null);
+  const [result, setResult] = useState<{
+    aiScore: number;
+    likelihood: string;
+    confidence: string;
+    indicators: string[];
+    details: {
+      averageSentenceLength: number;
+      sentenceLengthVariation: string;
+      genericPhraseCount: number;
+      genericPhrasesFound: string[];
+      personalPronounUsage: boolean;
+      personalVoiceScore: number;
+      reasoning?: string;
+      humanLikelihood?: number;
+    };
+  } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -40,7 +55,22 @@ export default function AIDetect() {
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/faculty/detect-ai", { content });
-      return response as unknown as { score: number; indicators: string[] };
+      return response.json() as Promise<{
+        aiScore: number;
+        likelihood: string;
+        confidence: string;
+        indicators: string[];
+        details: {
+          averageSentenceLength: number;
+          sentenceLengthVariation: string;
+          genericPhraseCount: number;
+          genericPhrasesFound: string[];
+          personalPronounUsage: boolean;
+          personalVoiceScore: number;
+          reasoning?: string;
+          humanLikelihood?: number;
+        };
+      }>;
     },
     onSuccess: (data) => {
       setResult(data);
@@ -65,10 +95,10 @@ export default function AIDetect() {
     },
   });
 
-  const getScoreBadge = (score: number) => {
-    if (score >= 70) {
+  const getScoreBadge = (score: number, likelihood: string) => {
+    if (likelihood === 'HIGH' || score >= 70) {
       return <Badge variant="destructive" className="text-base px-4 py-1"><AlertTriangle className="w-4 h-4 mr-2" />High Likelihood</Badge>;
-    } else if (score >= 40) {
+    } else if (likelihood === 'MEDIUM' || score >= 40) {
       return <Badge className="bg-amber-500 text-white text-base px-4 py-1"><AlertTriangle className="w-4 h-4 mr-2" />Moderate</Badge>;
     } else {
       return <Badge className="bg-emerald-500 text-white text-base px-4 py-1"><CheckCircle className="w-4 h-4 mr-2" />Low Likelihood</Badge>;
@@ -136,15 +166,50 @@ export default function AIDetect() {
             <CardContent className="space-y-6">
               {/* Score */}
               <div className="text-center py-6">
-                <div className="text-6xl font-bold mb-4" data-testid="text-ai-score">{result.score}%</div>
-                <div className="flex justify-center">{getScoreBadge(result.score)}</div>
+                <div className="text-6xl font-bold mb-4" data-testid="text-ai-score">{result.aiScore}%</div>
+                <div className="flex justify-center gap-2">
+                  {getScoreBadge(result.aiScore, result.likelihood)}
+                  <Badge variant="outline" className="text-base px-4 py-1">
+                    Confidence: {result.confidence}
+                  </Badge>
+                </div>
               </div>
 
+              {/* Reasoning */}
+              {result.details.reasoning && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium mb-1">Analysis Reasoning:</p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-reasoning">{result.details.reasoning}</p>
+                </div>
+              )}
+
               {/* Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Avg Sentence Length</p>
+                  <p className="text-lg font-semibold" data-testid="text-avg-sentence">{result.details.averageSentenceLength} words</p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Sentence Variation</p>
+                  <p className="text-lg font-semibold" data-testid="text-sentence-variation">{result.details.sentenceLengthVariation}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Generic Phrases</p>
+                  <p className="text-lg font-semibold" data-testid="text-generic-phrases">{result.details.genericPhraseCount}</p>
+                </div>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Personal Voice</p>
+                  <p className="text-lg font-semibold" data-testid="text-personal-voice">
+                    {result.details.personalPronounUsage ? 'Present' : 'Absent'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Indicators */}
               <Collapsible>
                 <CollapsibleTrigger asChild>
                   <Button variant="outline" className="w-full" data-testid="button-toggle-details">
-                    Analysis Details
+                    View Indicators ({result.indicators.length})
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-4">
@@ -160,8 +225,27 @@ export default function AIDetect() {
                       <p className="text-sm text-muted-foreground text-center py-4">No specific indicators found</p>
                     )}
                   </div>
+                  {result.details.genericPhrasesFound && result.details.genericPhrasesFound.length > 0 && (
+                    <div className="mt-4 p-3 bg-muted rounded-lg">
+                      <p className="text-sm font-medium mb-2">Generic Phrases Detected:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {result.details.genericPhrasesFound.map((phrase, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            "{phrase}"
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
+
+              {/* Disclaimer */}
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Note:</strong> AI detection is probabilistic and should be used as one factor in assessment, not definitive proof. Always consider context and other evidence.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
