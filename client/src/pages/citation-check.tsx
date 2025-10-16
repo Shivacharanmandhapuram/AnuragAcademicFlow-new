@@ -42,10 +42,11 @@ export default function CitationCheck() {
 
   const verifyMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/faculty/verify-citations", { content, style });
+      const response = await apiRequest("POST", "/api/faculty/verify-citations", { content, style });
+      return response.json() as Promise<{ results: VerificationResult[] }>;
     },
-    onSuccess: (data: { results: VerificationResult[] }) => {
-      setResults(data.results);
+    onSuccess: (data) => {
+      setResults(data?.results || []);
     },
     onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
@@ -85,9 +86,9 @@ export default function CitationCheck() {
     }
   };
 
-  const verifiedCount = results.filter(r => r.status === "verified").length;
-  const suspiciousCount = results.filter(r => r.status === "suspicious").length;
-  const fakeCount = results.filter(r => r.status === "fake").length;
+  const verifiedCount = results?.filter(r => r.status === "verified").length || 0;
+  const suspiciousCount = results?.filter(r => r.status === "suspicious").length || 0;
+  const fakeCount = results?.filter(r => r.status === "fake").length || 0;
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;

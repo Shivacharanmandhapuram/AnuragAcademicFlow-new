@@ -113,11 +113,12 @@ export default function Editor() {
 
   const shareMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", `/api/notes/${noteId}/share`);
+      const response = await apiRequest("POST", `/api/notes/${noteId}/share`);
+      return response.json() as Promise<{ shareToken: string }>;
     },
-    onSuccess: (data: { shareToken: string }) => {
-      setShareToken(data.shareToken);
-      const shareUrl = `${window.location.origin}/shared/${data.shareToken}`;
+    onSuccess: (data) => {
+      setShareToken(data?.shareToken || '');
+      const shareUrl = `${window.location.origin}/shared/${data?.shareToken}`;
       navigator.clipboard.writeText(shareUrl);
       toast({
         title: "Link copied!",
@@ -196,7 +197,7 @@ export default function Editor() {
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => setLocation(-1)}
+          onClick={() => window.history.back()}
           data-testid="button-back"
         >
           <ArrowLeft className="w-4 h-4" />
