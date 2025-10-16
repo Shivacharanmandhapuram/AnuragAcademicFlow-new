@@ -39,9 +39,10 @@ export default function AIDetect() {
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/faculty/detect-ai", { content });
+      const response = await apiRequest("POST", "/api/faculty/detect-ai", { content });
+      return response as unknown as { score: number; indicators: string[] };
     },
-    onSuccess: (data: { score: number; indicators: string[] }) => {
+    onSuccess: (data) => {
       setResult(data);
     },
     onError: (error: Error) => {
@@ -148,12 +149,16 @@ export default function AIDetect() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-4">
                   <div className="space-y-2">
-                    {result.indicators.map((indicator, idx) => (
-                      <div key={idx} className="flex items-start gap-2 p-3 bg-muted rounded-lg" data-testid={`indicator-${idx}`}>
-                        <XCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
-                        <p className="text-sm">{indicator}</p>
-                      </div>
-                    ))}
+                    {result.indicators && result.indicators.length > 0 ? (
+                      result.indicators.map((indicator, idx) => (
+                        <div key={idx} className="flex items-start gap-2 p-3 bg-muted rounded-lg" data-testid={`indicator-${idx}`}>
+                          <XCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                          <p className="text-sm">{indicator}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">No specific indicators found</p>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
