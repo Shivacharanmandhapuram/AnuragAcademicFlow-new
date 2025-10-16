@@ -47,7 +47,8 @@ export function AIAssistantModal({ open, onOpenChange, mode, content, onApply }:
       const endpoint = mode === "improve" ? "/api/ai/improve" : 
                       mode === "summarize" ? "/api/ai/summarize" : 
                       "/api/ai/grammar";
-      return await apiRequest("POST", endpoint, { text: content });
+      const response = await apiRequest("POST", endpoint, { text: content });
+      return await response.json();
     },
     onSuccess: (data: { result: string }) => {
       setResult(data.result);
