@@ -176,7 +176,7 @@ export default function AIDetect() {
               </div>
 
               {/* Reasoning */}
-              {result.details.reasoning && (
+              {result.details?.reasoning && (
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm font-medium mb-1">Analysis Reasoning:</p>
                   <p className="text-sm text-muted-foreground" data-testid="text-reasoning">{result.details.reasoning}</p>
@@ -187,20 +187,20 @@ export default function AIDetect() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Avg Sentence Length</p>
-                  <p className="text-lg font-semibold" data-testid="text-avg-sentence">{result.details.averageSentenceLength} words</p>
+                  <p className="text-lg font-semibold" data-testid="text-avg-sentence">{result.details?.averageSentenceLength || 0} words</p>
                 </div>
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Sentence Variation</p>
-                  <p className="text-lg font-semibold" data-testid="text-sentence-variation">{result.details.sentenceLengthVariation}</p>
+                  <p className="text-lg font-semibold" data-testid="text-sentence-variation">{result.details?.sentenceLengthVariation || 'N/A'}</p>
                 </div>
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Generic Phrases</p>
-                  <p className="text-lg font-semibold" data-testid="text-generic-phrases">{result.details.genericPhraseCount}</p>
+                  <p className="text-lg font-semibold" data-testid="text-generic-phrases">{result.details?.genericPhraseCount || 0}</p>
                 </div>
                 <div className="p-3 bg-muted rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Personal Voice</p>
                   <p className="text-lg font-semibold" data-testid="text-personal-voice">
-                    {result.details.personalPronounUsage ? 'Present' : 'Absent'}
+                    {result.details?.personalPronounUsage ? 'Present' : 'Absent'}
                   </p>
                 </div>
               </div>
@@ -225,7 +225,7 @@ export default function AIDetect() {
                       <p className="text-sm text-muted-foreground text-center py-4">No specific indicators found</p>
                     )}
                   </div>
-                  {result.details.genericPhrasesFound && result.details.genericPhrasesFound.length > 0 && (
+                  {result.details?.genericPhrasesFound && result.details.genericPhrasesFound.length > 0 && (
                     <div className="mt-4 p-3 bg-muted rounded-lg">
                       <p className="text-sm font-medium mb-2">Generic Phrases Detected:</p>
                       <div className="flex flex-wrap gap-2">
