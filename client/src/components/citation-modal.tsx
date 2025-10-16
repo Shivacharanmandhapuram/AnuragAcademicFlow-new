@@ -30,14 +30,15 @@ export function CitationModal({ open, onOpenChange, noteId }: CitationModalProps
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/citations/generate", {
+      const response = await apiRequest("POST", "/api/citations/generate", {
         noteId,
-        input,
-        style,
+        inputText: input,
+        citationStyle: style,
       });
+      return await response.json();
     },
-    onSuccess: (data: { citation: string }) => {
-      setResult(data.citation);
+    onSuccess: (data: any) => {
+      setResult(data.formattedCitation);
       queryClient.invalidateQueries({ queryKey: ["/api/citations", noteId] });
     },
     onError: (error: Error) => {
