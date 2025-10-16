@@ -69,11 +69,17 @@ Preferred communication style: Simple, everyday language.
   - Clerk packages (`@clerk/clerk-react`, `@clerk/express`) already installed
 
 **AI Integration:**
-- OpenAI API integration for AI-powered features
-- Text improvement and summarization
-- Grammar correction
-- AI content detection (for faculty)
-- Citation verification
+- **OpenAI GPT-5 API** integration for AI-powered features (latest model released August 7, 2025)
+- **Text Improvement & Summarization:** AI-powered content enhancement
+- **Grammar Correction:** Automated grammar and spelling checks
+- **Enhanced AI Content Detection (Faculty):**
+  - Pattern-based analysis with 7 key indicators
+  - Fallback detection when API unavailable
+  - Comprehensive scoring (0-100) with likelihood levels
+  - Detailed metrics: sentence analysis, generic phrase detection, personal voice analysis
+  - Response includes: aiScore, likelihood, confidence, indicators, and detailed patterns
+  - See `AI_DETECTION_IMPLEMENTATION.md` for complete documentation
+- **Citation Verification:** AI-powered citation authenticity checking
 
 ### Data Storage
 
