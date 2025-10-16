@@ -38,12 +38,13 @@ export default function StudentDashboard() {
 
   const createNoteMutation = useMutation({
     mutationFn: async (noteType: "research" | "code" | "general") => {
-      return await apiRequest("POST", "/api/notes", { 
+      const response = await apiRequest("POST", "/api/notes", { 
         title: "Untitled Note",
         content: "",
         noteType,
         isPublic: false
       });
+      return await response.json();
     },
     onSuccess: (data: Note) => {
       queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
