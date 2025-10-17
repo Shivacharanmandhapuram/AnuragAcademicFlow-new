@@ -28,6 +28,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   notes: many(notes),
   submissionsAsStudent: many(submissions, { relationName: "studentSubmissions" }),
   submissionsAsFaculty: many(submissions, { relationName: "facultySubmissions" }),
+  pdfs: many(pdfs),
 }));
 
 export type UpsertUser = typeof users.$inferInsert;
@@ -126,3 +127,32 @@ export const insertSubmissionSchema = createInsertSchema(submissions).omit({
 
 export type InsertSubmission = z.infer<typeof insertSubmissionSchema>;
 export type Submission = typeof submissions.$inferSelect;
+
+// PDFs table - Stores PDF documents shared by students
+export const pdfs = pgTable("pdfs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar("title", { length: 500 }).notNull(),
+  subject: varchar("subject", { length: 200 }).notNull(),
+  description: text("description"),
+  s3Key: varchar("s3_key").notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  isPublic: boolean("is_public").notNull().default(true),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const pdfsRelations = relations(pdfs, ({ one }) => ({
+  user: one(users, {
+    fields: [pdfs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertPdfSchema = createInsertSchema(pdfs).omit({
+  id: true,
+  uploadedAt: true,
+});
+
+export type InsertPdf = z.infer<typeof insertPdfSchema>;
+export type Pdf = typeof pdfs.$inferSelect;
