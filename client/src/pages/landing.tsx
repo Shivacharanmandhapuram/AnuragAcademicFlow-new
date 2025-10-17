@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, CheckCircle, Shield } from "lucide-react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -15,32 +16,80 @@ import {
 } from "@/components/ui/dialog";
 
 export default function Landing() {
-  const [name, setName] = useState("");
   const [showDialog, setShowDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
   const { toast } = useToast();
 
-  const setNameMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/auth/set-name", { name });
+  // Login state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+  // Signup state
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupFirstName, setSignupFirstName] = useState("");
+  const [signupLastName, setSignupLastName] = useState("");
+
+  const loginMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/auth/login", data);
       return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setShowDialog(false);
+      toast({
+        title: "Welcome back!",
+        description: "You've successfully logged in.",
+      });
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to set name",
+        title: "Login failed",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const signupMutation = useMutation({
+    mutationFn: async (data: { email: string; password: string; firstName?: string; lastName?: string }) => {
+      const res = await apiRequest("POST", "/api/auth/signup", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setShowDialog(false);
+      toast({
+        title: "Account created!",
+        description: "Welcome to AcademicFlow.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Signup failed",
+        description: error.message || "Could not create account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      setNameMutation.mutate(name.trim());
+    if (loginEmail.trim() && loginPassword.trim()) {
+      loginMutation.mutate({ email: loginEmail.trim(), password: loginPassword.trim() });
+    }
+  };
+
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (signupEmail.trim() && signupPassword.trim()) {
+      signupMutation.mutate({
+        email: signupEmail.trim(),
+        password: signupPassword.trim(),
+        firstName: signupFirstName.trim() || undefined,
+        lastName: signupLastName.trim() || undefined,
+      });
     }
   };
 
@@ -128,33 +177,104 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* Name Input Dialog */}
+      {/* Auth Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent data-testid="dialog-name-input">
+        <DialogContent className="sm:max-w-md" data-testid="dialog-auth">
           <DialogHeader>
             <DialogTitle>Welcome to AcademicFlow</DialogTitle>
             <DialogDescription>
-              Please enter your name to get started
+              Sign in to your account or create a new one
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              data-testid="input-name"
-            />
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={setNameMutation.isPending || !name.trim()}
-              data-testid="button-submit-name"
-            >
-              {setNameMutation.isPending ? "Setting up..." : "Continue"}
-            </Button>
-          </form>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
+              <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="login" className="space-y-4 mt-4">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    required
+                    data-testid="input-login-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    data-testid="input-login-password"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={loginMutation.isPending || !loginEmail.trim() || !loginPassword.trim()}
+                  data-testid="button-login"
+                >
+                  {loginMutation.isPending ? "Logging in..." : "Login"}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup" className="space-y-4 mt-4">
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="text"
+                    placeholder="First Name (optional)"
+                    value={signupFirstName}
+                    onChange={(e) => setSignupFirstName(e.target.value)}
+                    data-testid="input-signup-firstname"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Last Name (optional)"
+                    value={signupLastName}
+                    onChange={(e) => setSignupLastName(e.target.value)}
+                    data-testid="input-signup-lastname"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    required
+                    data-testid="input-signup-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    required
+                    data-testid="input-signup-password"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={signupMutation.isPending || !signupEmail.trim() || !signupPassword.trim()}
+                  data-testid="button-signup"
+                >
+                  {signupMutation.isPending ? "Creating account..." : "Sign Up"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>

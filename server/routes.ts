@@ -25,32 +25,90 @@ const upload = multer({
   },
 });
 
+// Helper function to remove sensitive data from user object
+function sanitizeUser(user: any) {
+  if (!user) return user;
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
+// Helper function to sanitize submissions (which contain user objects)
+function sanitizeSubmission(submission: any) {
+  if (!submission) return submission;
+  return {
+    ...submission,
+    student: submission.student ? sanitizeUser(submission.student) : undefined,
+    faculty: submission.faculty ? sanitizeUser(submission.faculty) : undefined,
+  };
+}
+
+// Helper function to sanitize PDFs (which contain user objects)
+function sanitizePdf(pdf: any) {
+  if (!pdf) return pdf;
+  return {
+    ...pdf,
+    user: pdf.user ? sanitizeUser(pdf.user) : undefined,
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth routes - simplified without Clerk
-  app.post("/api/auth/set-name", async (req, res) => {
+  // Auth routes - simple email/password authentication
+  app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { name } = req.body;
+      const { email, password, firstName, lastName } = req.body;
       
-      if (!name || name.trim().length === 0) {
-        return res.status(400).json({ message: "Name is required" });
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
       }
 
-      // Create or get user by name
-      const userId = randomUUID();
-      const user = await storage.upsertUser({
-        id: userId,
-        email: null,
-        firstName: name,
-        lastName: null,
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Create new user
+      const user = await storage.createUser({
+        email,
+        password,
+        firstName: firstName || null,
+        lastName: lastName || null,
         profileImageUrl: null,
         role: null,
       });
 
       req.session.userId = user.id;
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
-      console.error("Error setting name:", error);
-      res.status(500).json({ message: "Failed to set name" });
+      console.error("Error signing up:", error);
+      res.status(500).json({ message: "Failed to sign up" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check password
+      if (user.password !== password) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      req.session.userId = user.id;
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      console.error("Error logging in:", error);
+      res.status(500).json({ message: "Failed to log in" });
     }
   });
 
@@ -66,7 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -113,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role,
       });
 
-      res.json(updatedUser);
+      res.json(sanitizeUser(updatedUser));
     } catch (error) {
       console.error("Error selecting role:", error);
       res.status(500).json({ message: "Failed to select role" });
@@ -697,7 +755,7 @@ Return your analysis as a JSON object with this EXACT structure:
         submissions = await storage.getSubmissionsByStudentId(userId);
       }
 
-      res.json(submissions);
+      res.json(submissions.map(sanitizeSubmission));
     } catch (error) {
       console.error("Error fetching submissions:", error);
       res.status(500).json({ message: "Failed to fetch submissions" });
@@ -722,7 +780,7 @@ Return your analysis as a JSON object with this EXACT structure:
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      res.json(submission);
+      res.json(sanitizeSubmission(submission));
     } catch (error) {
       console.error("Error fetching submission:", error);
       res.status(500).json({ message: "Failed to fetch submission" });
@@ -787,7 +845,7 @@ Return your analysis as a JSON object with this EXACT structure:
       }
 
       const pdfs = await storage.getAllPdfs();
-      res.json(pdfs);
+      res.json(pdfs.map(sanitizePdf));
     } catch (error) {
       console.error("Error fetching PDFs:", error);
       res.status(500).json({ message: "Failed to fetch PDFs" });
