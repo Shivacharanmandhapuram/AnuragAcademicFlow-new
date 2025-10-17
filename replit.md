@@ -4,7 +4,7 @@
 
 AcademicFlow is a modern, minimal academic workspace platform designed for university students and faculty. The application enables users to share notes and code, generate citations, and leverage AI-powered tools for academic writing and integrity verification. The platform supports two distinct user roles with tailored features:
 
-**Students:** Create and share notes/code, generate academic citations, and receive AI-powered writing assistance.
+**Students:** Create and share notes/code, generate academic citations, receive AI-powered writing assistance, and share subject PDFs with other students.
 
 **Faculty:** Detect AI-generated content in submissions, verify citation accuracy, and review student work.
 
@@ -58,6 +58,7 @@ Preferred communication style: Simple, everyday language.
 - `/api/citations/*` - Citation generation and management
 - `/api/submissions/*` - Student submission handling
 - `/api/faculty/*` - Faculty-specific features (AI detection, citation verification)
+- `/api/pdfs/*` - PDF file upload, listing, and download (student feature)
 
 **Authentication Strategy:**
 - **Current:** Simple name-based authentication for quick development
@@ -114,11 +115,20 @@ Preferred communication style: Simple, everyday language.
 - Citation verification status
 - Grading and feedback support
 
+**PDFs Table:**
+- Stores PDF document metadata for student file sharing
+- Links to user who uploaded the file
+- Subject categorization for easy discovery
+- S3 key reference for file storage
+- File metadata (name, size) for display
+- Public/private visibility control
+
 **Relations:**
 - One-to-many: User → Notes
 - One-to-many: User → Submissions (as student)
 - One-to-many: User → Submissions (as faculty reviewer)
 - One-to-many: Note → Citations
+- One-to-many: User → PDFs
 
 ### External Dependencies
 
@@ -146,8 +156,15 @@ Preferred communication style: Simple, everyday language.
 - Features: text improvement, summarization, grammar checking, AI detection
 
 **File Storage:**
-- Prepared for AWS S3 integration (Multer configured)
-- Currently not actively used in the application
+- **AWS S3** integration for PDF file storage
+- Environment variables configured:
+  - `AWS_ACCESS_KEY_ID` - S3 access key
+  - `AWS_SECRET_ACCESS_KEY` - S3 secret key
+  - `AWS_REGION` - S3 bucket region
+  - `AWS_S3_BUCKET_NAME` - S3 bucket name
+- Multer configured for file upload handling (10MB limit, PDF only)
+- S3 utility service (`server/lib/s3.ts`) for upload/download/delete operations
+- Signed URLs for secure temporary download access
 
 **Development Tools:**
 - Replit-specific plugins for development environment
