@@ -1,13 +1,29 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertNoteSchema, insertCitationSchema, insertSubmissionSchema } from "@shared/schema";
+import { insertNoteSchema, insertCitationSchema, insertSubmissionSchema, insertPdfSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 import OpenAI from "openai";
+import { uploadToS3, getSignedDownloadUrl, deleteFromS3 } from "./lib/s3";
+import multer from "multer";
 
 const openai = process.env.OPENAI_API_KEY 
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - simplified without Clerk
@@ -758,6 +774,134 @@ Return your analysis as a JSON object with this EXACT structure:
     } catch (error) {
       console.error("Error updating submission:", error);
       res.status(500).json({ message: "Failed to update submission" });
+    }
+  });
+
+  // PDF routes
+  app.get("/api/pdfs", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const pdfs = await storage.getAllPdfs();
+      res.json(pdfs);
+    } catch (error) {
+      console.error("Error fetching PDFs:", error);
+      res.status(500).json({ message: "Failed to fetch PDFs" });
+    }
+  });
+
+  app.get("/api/pdfs/my", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const pdfs = await storage.getPdfsByUserId(userId);
+      res.json(pdfs);
+    } catch (error) {
+      console.error("Error fetching user PDFs:", error);
+      res.status(500).json({ message: "Failed to fetch user PDFs" });
+    }
+  });
+
+  app.get("/api/pdfs/:id/download", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const pdf = await storage.getPdfById(id);
+      if (!pdf) {
+        return res.status(404).json({ message: "PDF not found" });
+      }
+
+      const downloadUrl = await getSignedDownloadUrl(pdf.s3Key);
+      res.json({ downloadUrl, fileName: pdf.fileName });
+    } catch (error) {
+      console.error("Error getting PDF download URL:", error);
+      res.status(500).json({ message: "Failed to get download URL" });
+    }
+  });
+
+  app.post("/api/pdfs/upload", upload.single('file'), async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.role !== "student") {
+        return res.status(403).json({ message: "Student access required" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { title, subject, description } = req.body;
+      
+      if (!title || !subject) {
+        return res.status(400).json({ message: "Title and subject are required" });
+      }
+
+      const s3Key = `pdfs/${userId}/${Date.now()}_${req.file.originalname}`;
+      
+      await uploadToS3({
+        key: s3Key,
+        body: req.file.buffer,
+        contentType: req.file.mimetype,
+      });
+
+      const pdfData = insertPdfSchema.parse({
+        userId,
+        title,
+        subject,
+        description: description || null,
+        s3Key,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        isPublic: true,
+      });
+
+      const pdf = await storage.createPdf(pdfData);
+      res.json(pdf);
+    } catch (error) {
+      console.error("Error uploading PDF:", error);
+      res.status(500).json({ message: "Failed to upload PDF" });
+    }
+  });
+
+  app.delete("/api/pdfs/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const pdf = await storage.getPdfById(id);
+      if (!pdf) {
+        return res.status(404).json({ message: "PDF not found" });
+      }
+
+      if (pdf.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      await deleteFromS3(pdf.s3Key);
+      await storage.deletePdf(id);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting PDF:", error);
+      res.status(500).json({ message: "Failed to delete PDF" });
     }
   });
 

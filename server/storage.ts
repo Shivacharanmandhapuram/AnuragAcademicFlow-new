@@ -3,6 +3,7 @@ import {
   notes,
   citations,
   submissions,
+  pdfs,
   type User,
   type UpsertUser,
   type Note,
@@ -11,6 +12,8 @@ import {
   type InsertCitation,
   type Submission,
   type InsertSubmission,
+  type Pdf,
+  type InsertPdf,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, or } from "drizzle-orm";
@@ -39,6 +42,13 @@ export interface IStorage {
   getSubmissionById(id: string): Promise<(Submission & { student: User; faculty: User | null }) | undefined>;
   createSubmission(submission: InsertSubmission): Promise<Submission>;
   updateSubmission(id: string, submission: Partial<InsertSubmission>): Promise<Submission>;
+  
+  // PDF operations
+  getAllPdfs(): Promise<(Pdf & { user: User })[]>;
+  getPdfsByUserId(userId: string): Promise<Pdf[]>;
+  getPdfById(id: string): Promise<Pdf | undefined>;
+  createPdf(pdf: InsertPdf): Promise<Pdf>;
+  deletePdf(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -160,6 +170,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(submissions.id, id))
       .returning();
     return submission;
+  }
+
+  // PDF operations
+  async getAllPdfs(): Promise<(Pdf & { user: User })[]> {
+    const results = await db
+      .select()
+      .from(pdfs)
+      .leftJoin(users, eq(pdfs.userId, users.id))
+      .where(eq(pdfs.isPublic, true))
+      .orderBy(desc(pdfs.uploadedAt));
+
+    return results.map(r => ({ ...r.pdfs, user: r.users! }));
+  }
+
+  async getPdfsByUserId(userId: string): Promise<Pdf[]> {
+    return await db.select().from(pdfs).where(eq(pdfs.userId, userId)).orderBy(desc(pdfs.uploadedAt));
+  }
+
+  async getPdfById(id: string): Promise<Pdf | undefined> {
+    const [pdf] = await db.select().from(pdfs).where(eq(pdfs.id, id));
+    return pdf;
+  }
+
+  async createPdf(pdfData: InsertPdf): Promise<Pdf> {
+    const [pdf] = await db.insert(pdfs).values(pdfData).returning();
+    return pdf;
+  }
+
+  async deletePdf(id: string): Promise<void> {
+    await db.delete(pdfs).where(eq(pdfs.id, id));
   }
 }
 
