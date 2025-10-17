@@ -16,6 +16,7 @@ import SharedNote from "@/pages/shared-note";
 import AIDetect from "@/pages/ai-detect";
 import CitationCheck from "@/pages/citation-check";
 import Submissions from "@/pages/submissions";
+import PDFSharing from "@/pages/pdf-sharing";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -47,6 +48,7 @@ function Router() {
 
         {/* Student routes */}
         <Route path="/dashboard" component={StudentDashboard} />
+        <Route path="/pdf-sharing" component={PDFSharing} />
         
         {/* Faculty routes */}
         <Route path="/faculty/dashboard" component={FacultyDashboard} />

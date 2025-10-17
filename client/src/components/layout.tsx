@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
-import { Home, FileText, GraduationCap, LogOut } from "lucide-react";
+import { Home, FileText, GraduationCap, LogOut, FolderOpen } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     Notes
                   </Button>
                 </Link>
+
+                {user?.role === "student" && (
+                  <Link href="/pdf-sharing">
+                    <Button 
+                      variant={isActive("/pdf-sharing") ? "secondary" : "ghost"}
+                      size="sm"
+                      data-testid="nav-pdf-sharing"
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      PDF Sharing
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
 
