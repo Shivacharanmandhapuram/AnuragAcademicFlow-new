@@ -90,7 +90,7 @@ export default function Editor() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<Note>) => {
-      return await apiRequest("PUT", `/api/notes/${noteId}`, data);
+      return await apiRequest("PATCH", `/api/notes/${noteId}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notes", noteId] });

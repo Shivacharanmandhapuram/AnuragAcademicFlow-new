@@ -263,12 +263,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const shareToken = note.shareToken || randomUUID();
       const updatedNote = await storage.updateNote(id, {
-        isPublic,
+        isPublic: true,
         shareToken,
       });
 
       res.json({
-        shareUrl: isPublic ? `${req.protocol}://${req.hostname}/shared/${shareToken}` : null,
+        shareToken,
+        shareUrl: `${req.protocol}://${req.hostname}/shared/${shareToken}`,
       });
     } catch (error) {
       console.error("Error sharing note:", error);
