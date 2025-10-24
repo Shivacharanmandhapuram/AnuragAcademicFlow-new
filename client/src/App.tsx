@@ -15,7 +15,6 @@ import Editor from "@/pages/editor";
 import SharedNote from "@/pages/shared-note";
 import AIDetect from "@/pages/ai-detect";
 import CitationCheck from "@/pages/citation-check";
-import Submissions from "@/pages/submissions";
 import PDFSharing from "@/pages/pdf-sharing";
 
 function Router() {
@@ -54,7 +53,6 @@ function Router() {
         <Route path="/faculty/dashboard" component={FacultyDashboard} />
         <Route path="/faculty/ai-detect" component={AIDetect} />
         <Route path="/faculty/citation-check" component={CitationCheck} />
-        <Route path="/faculty/submissions" component={Submissions} />
 
         {/* Shared routes */}
         <Route path="/notes" component={Notes} />

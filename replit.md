@@ -6,7 +6,7 @@ AcademicFlow is a modern, minimal academic workspace platform designed for unive
 
 **Students:** Create and share notes/code, generate academic citations, receive AI-powered writing assistance, and share subject PDFs with other students.
 
-**Faculty:** Detect AI-generated content in submissions, verify citation accuracy, and review student work.
+**Faculty:** Detect AI-generated content and verify citation accuracy.
 
 The application follows a clean, professional design philosophy inspired by Notion and Linear, emphasizing minimal interfaces with purposeful animations and clear visual hierarchy.
 
@@ -56,7 +56,6 @@ Preferred communication style: Simple, everyday language.
 - `/api/auth/*` - Authentication and user management
 - `/api/notes/*` - Note CRUD operations
 - `/api/citations/*` - Citation generation and management
-- `/api/submissions/*` - Student submission handling
 - `/api/faculty/*` - Faculty-specific features (AI detection, citation verification)
 - `/api/pdfs/*` - PDF file upload, listing, and download (student feature)
 
